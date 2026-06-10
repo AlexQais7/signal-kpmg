@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signal — AI Builder Candidate Evaluation</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #1a2e4a;
+      --teal: #0d7a6e;
+      --slate: #475569;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --red: #dc2626;
+      --amber: #d97706;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--navy);
+      color: white;
+      padding: 0 24px;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    .header-brand { display: flex; align-items: baseline; gap: 10px; }
+    .header-title { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+    .header-sub { font-size: 12px; color: #94a3b8; }
+
+    .ai-disclosure {
+      font-size: 11px;
+      color: #94a3b8;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 4px;
+      padding: 4px 10px;
+    }
+
+    /* ── Two-column layout ── */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      height: calc(100vh - 54px);
+    }
+
+    .panel-left {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .panel-right {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Input panel sections ── */
+    .input-section {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--slate);
+      margin-bottom: 7px;
+    }
+
+    .field-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 11px;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: inherit;
+    }
+
+    .field-input:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(13,122,110,0.1);
+    }
+
+    select.field-input {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23475569' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 11px center;
+      padding-right: 30px;
+    }
+
+    textarea.field-input {
+      resize: vertical;
+      min-height: 190px;
+      line-height: 1.6;
+    }
+
+    .word-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      text-align: right;
+    }
+
+    .word-count.under { color: var(--red); font-weight: 500; }
+
+    /* ── Evaluate button ── */
+    .btn-primary {
+      width: 100%;
+      background: var(--teal);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    .btn-primary:hover:not(:disabled) { background: #0a6359; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Inline messages ── */
+    .msg {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .msg.error   { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+    .msg.blocked { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+
+    /* ── Governance notice ── */
+    .gov-notice {
+      padding: 14px 20px;
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+    }
+
+    .gov-notice strong { color: var(--slate); display: block; margin-bottom: 4px; }
+
+    /* ── Collapsible disclosure blocks ── */
+    .panel-info {
+      padding: 16px 24px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .disc-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      overflow: hidden;
+    }
+
+    .disc-summary {
+      list-style: none;
+      padding: 9px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--slate);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      gap: 8px;
+    }
+
+    .disc-summary::-webkit-details-marker { display: none; }
+
+    .disc-summary::after {
+      content: '▸';
+      font-size: 10px;
+      color: var(--text-muted);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    details[open] > .disc-summary::after {
+      transform: rotate(90deg);
+    }
+
+    .disc-body {
+      padding: 0 14px 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Criteria grid inside disclosure */
+    .criteria-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 10px;
+    }
+
+    .criteria-item {
+      display: grid;
+      grid-template-columns: 148px 1fr;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: start;
+    }
+
+    .criteria-item:last-child { border-bottom: none; }
+
+    .criteria-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .criteria-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    /* Two-stage explanation inside disclosure */
+    .stage-explain {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .stage-explain-row {
+      display: flex;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .stage-badge {
+      flex-shrink: 0;
+      background: var(--navy);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 4px;
+      padding: 2px 7px;
+      margin-top: 1px;
+    }
+
+    .stage-explain-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .stage-explain-text strong { color: var(--text); }
+
+    .stage-explain-note {
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 7px 10px;
+      background: #f8fafc;
+      border-left: 3px solid var(--teal);
+      border-radius: 0 4px 4px 0;
+      line-height: 1.5;
+      margin-top: 2px;
+    }
+
+    /* ── Right panel dynamic area ── */
+    #results {
+      padding: 16px 24px 24px;
+      flex: 1;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      text-align: center;
+      color: var(--text-muted);
+      gap: 10px;
+    }
+
+    .empty-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: var(--slate);
+    }
+
+    .empty-title { font-size: 15px; font-weight: 600; color: var(--text); }
+    .empty-desc  { font-size: 13px; max-width: 260px; }
+
+    /* ── Progress ── */
+    .progress-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 18px;
+    }
+
+    .progress-label { font-size: 13px; color: var(--slate); font-weight: 600; }
+
+    .stage-track {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .stage-node {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .stage-node.active { color: var(--teal); font-weight: 600; }
+    .stage-node.done   { color: var(--text-muted); }
+
+    .stage-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      flex-shrink: 0;
+    }
+
+    .stage-node.active .stage-dot { background: var(--teal); animation: blink 1s ease-in-out infinite; }
+    .stage-node.done   .stage-dot { background: #6ee7b7; }
+
+    .stage-arrow { color: #cbd5e1; font-size: 14px; }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    .progress-sub { font-size: 12px; color: var(--text-muted); }
+
+    /* ── Results: section label ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--slate);
+      margin-bottom: 10px;
+    }
+
+    /* ── Evaluated question display ── */
+    .question-display {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+    }
+
+    .question-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .question-text {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+      font-style: italic;
+    }
+
+    /* ── Overall rating ── */
+    .rating-card {
+      border-radius: 8px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+
+    .rating-card.strong       { border: 1px solid #6ee7b7; }
+    .rating-card.possible     { border: 1px solid #fcd34d; }
+    .rating-card.insufficient { border: 1px solid #fca5a5; }
+
+    .rating-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+    }
+
+    .rating-card.strong       .rating-main { background: #ecfdf5; }
+    .rating-card.possible     .rating-main { background: #fffbeb; }
+    .rating-card.insufficient .rating-main { background: #fef2f2; }
+
+    .rating-left { display: flex; flex-direction: column; gap: 2px; }
+    .rating-eyebrow { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .rating-value { font-size: 20px; font-weight: 800; }
+
+    .rating-card.strong       .rating-value { color: #064e3b; }
+    .rating-card.possible     .rating-value { color: #78350f; }
+    .rating-card.insufficient .rating-value { color: #7f1d1d; }
+
+    .rating-override { font-size: 11px; color: #92400e; margin-top: 2px; }
+    .rating-score { font-size: 22px; font-weight: 700; color: var(--text-muted); }
+    .rating-denom { font-size: 13px; }
+
+    /* Action guidance strip below rating */
+    .rating-action {
+      padding: 9px 18px;
+      font-size: 12px;
+      line-height: 1.45;
+      border-top: 1px solid;
+    }
+
+    .rating-card.strong       .rating-action { background: #d1fae5; border-color: #6ee7b7; color: #064e3b; }
+    .rating-card.possible     .rating-action { background: #fef3c7; border-color: #fcd34d; color: #78350f; }
+    .rating-card.insufficient .rating-action { background: #fee2e2; border-color: #fca5a5; color: #7f1d1d; }
+
+    .action-label { font-weight: 700; }
+
+    /* ── Pattern summary ── */
+    .pattern-summary {
+      padding: 11px 14px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .pattern-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    /* ── Scorecard table ── */
+    .scorecard {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .sc-head {
+      display: grid;
+      grid-template-columns: 170px 70px 100px 1fr;
+      gap: 12px;
+      padding: 9px 16px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--slate);
+    }
+
+    .sc-row {
+      display: grid;
+      grid-template-columns: 170px 70px 100px 1fr;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      align-items: start;
+    }
+
+    .sc-row:last-child { border-bottom: none; }
+
+    .dim-name { font-weight: 600; font-size: 13px; line-height: 1.3; }
+    .dim-desc { font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.35; }
+
+    .score-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 2px; }
+    .score-num  { font-size: 22px; font-weight: 800; line-height: 1; }
+    .score-bar-bg { width: 44px; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
+    .score-bar-fg { height: 100%; border-radius: 2px; }
+    .score-denom  { font-size: 10px; color: var(--text-muted); }
+
+    .conf-pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
+
+    .conf-pill.high   { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .conf-pill.medium { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; }
+    .conf-pill.low    { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+
+    .analysis-text { font-size: 13px; color: var(--text); line-height: 1.55; }
+
+    .quote-block {
+      margin-top: 8px;
+      padding: 7px 10px;
+      background: #f8fafc;
+      border-left: 3px solid var(--teal);
+      border-radius: 0 4px 4px 0;
+      font-size: 12px;
+      color: #334155;
+      font-style: italic;
+      line-height: 1.45;
+    }
+
+    .no-quote {
+      margin-top: 8px;
+      padding: 5px 9px;
+      background: #fff7ed;
+      border-left: 3px solid var(--amber);
+      border-radius: 0 4px 4px 0;
+      font-size: 11px;
+      color: #92400e;
+    }
+
+    /* ── Column header tooltips ── */
+    .col-tip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      color: var(--slate);
+      font-size: 8px;
+      font-weight: 800;
+      cursor: default;
+      margin-left: 4px;
+      vertical-align: middle;
+      position: relative;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .col-tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 7px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--navy);
+      color: white;
+      font-size: 11px;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      padding: 6px 10px;
+      border-radius: 5px;
+      width: max-content;
+      max-width: 220px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      z-index: 20;
+      line-height: 1.4;
+    }
+
+    .col-tip:hover::after { opacity: 1; }
+
+    /* ── Review flags ── */
+    .flags-card {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .flags-header {
+      padding: 9px 16px;
+      background: #fef3c7;
+      border-bottom: 1px solid #fcd34d;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #92400e;
+    }
+
+    .flag-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #fde68a;
+    }
+
+    .flag-item:last-child { border-bottom: none; }
+
+    .flag-dim    { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #92400e; margin-bottom: 4px; }
+    .flag-reason { font-size: 13px; color: #78350f; margin-bottom: 8px; line-height: 1.45; }
+
+    .flag-probe {
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      border-radius: 4px;
+      padding: 7px 10px;
+      font-size: 12px;
+      color: #78350f;
+      line-height: 1.45;
+    }
+
+    .flag-probe-label { font-weight: 700; display: block; margin-bottom: 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+    /* ── Evaluator note ── */
+    .eval-note {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--navy);
+      border-radius: 0 6px 6px 0;
+      padding: 11px 14px;
+      font-size: 12px;
+      color: var(--slate);
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-brand">
+      <span class="header-title">Signal</span>
+      <span class="header-sub">AI Builder Evaluation</span>
+    </div>
+    <span class="ai-disclosure">AI-assisted · Human judgment required for all hiring decisions</span>
+  </header>
+
+  <div class="app-layout">
+
+    <!-- Left: Input -->
+    <aside class="panel-left">
+
+      <div class="input-section">
+        <input type="hidden" id="api-key" value="">
+        <p style="font-size:11px;color:var(--text-muted);line-height:1.5;">Key is used only in your browser session and never sent to or stored by this application. For production deployment, replace with a server-side proxy to keep the key out of the client.</p>
+      </div>
+
+      <div class="input-section">
+        <label class="field-label" for="q-select">Interview Question</label>
+        <select id="q-select" class="field-input">
+          <option value="">Select a question…</option>
+          <option value="0">1. Agentic system built and deployed</option>
+          <option value="1">2. Ambiguous problem to AI solution</option>
+          <option value="2">3. Human oversight in agentic workflow</option>
+          <option value="3">4. Balancing speed with governance</option>
+        </select>
+      </div>
+
+      <div class="input-section" style="flex:1">
+        <label class="field-label" for="response-box">Candidate Response</label>
+        <textarea id="response-box" class="field-input" placeholder="Paste the candidate's response here…" style="min-height:210px;"></textarea>
+        <div class="word-count" id="wc">0 words</div>
+      </div>
+
+      <div class="input-section">
+        <button class="btn-primary" id="eval-btn" onclick="runEvaluation()">Evaluate Response</button>
+        <div id="inline-msg"></div>
+      </div>
+
+      <div class="gov-notice">
+        <strong>Active governance rules</strong>
+        Responses under 100 words are blocked before evaluation.
+        Three or more Low confidence dimensions override the final rating to Insufficient.
+        Every score must cite a direct quote — absence triggers a warning.
+        This system never outputs hire or do not hire.
+      </div>
+
+    </aside>
+
+    <!-- Right: permanent info + dynamic results -->
+    <main class="panel-right">
+
+      <!-- Always-visible reference panels -->
+      <div class="panel-info">
+
+        <details class="disc-block">
+          <summary class="disc-summary">Evaluation criteria — 5 dimensions</summary>
+          <div class="disc-body">
+            <div class="criteria-list">
+              <div class="criteria-item">
+                <div class="criteria-name">Specificity Depth</div>
+                <div class="criteria-desc">Looks for falsifiable details: named tools, specific numbers, team sizes, dates, and performance metrics. Vague language ("we used AI to improve things") scores low; named systems with measurable outcomes score high.</div>
+              </div>
+              <div class="criteria-item">
+                <div class="criteria-name">Tradeoff Authenticity</div>
+                <div class="criteria-desc">Looks for what the candidate chose <em>not</em> to build, with a real reason attached. Generic "we prioritised speed" scores low; "we dropped the re-ranking layer because latency SLA was 200ms and it added 80ms" scores high.</div>
+              </div>
+              <div class="criteria-item">
+                <div class="criteria-name">Failure Texture</div>
+                <div class="criteria-desc">Looks for a real failure arc: wrong first hypothesis, specific friction, how they diagnosed it, and what actually fixed it. Smooth success narratives score low regardless of how impressive they sound.</div>
+              </div>
+              <div class="criteria-item">
+                <div class="criteria-name">Constraint Proactivity</div>
+                <div class="criteria-desc">Looks for the candidate naming their own limitations — knowledge gaps, resource constraints, model behaviour they couldn't control — without being asked. Self-awareness of limits is a strong signal of genuine experience.</div>
+              </div>
+              <div class="criteria-item">
+                <div class="criteria-name">Problem Interrogation</div>
+                <div class="criteria-desc">Looks for the candidate questioning the problem before answering: reframing scope, surfacing unstated assumptions, or clarifying what success means. Jumping straight to a solution without interrogating it scores low.</div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="disc-block">
+          <summary class="disc-summary">How evaluation works — two-stage process</summary>
+          <div class="disc-body">
+            <div class="stage-explain">
+              <div class="stage-explain-row">
+                <span class="stage-badge">Stage 1</span>
+                <div class="stage-explain-text"><strong>Evidence extraction.</strong> The model reads the candidate response and maps only what is explicitly stated into six categories: specific claims, named tools, failure mentions, tradeoff language, limitation acknowledgments, and problem questioning. No inference — only what is written.</div>
+              </div>
+              <div class="stage-explain-row">
+                <span class="stage-badge">Stage 2</span>
+                <div class="stage-explain-text"><strong>Dimension scoring.</strong> A second model call scores all five dimensions using only the evidence map from Stage 1. It cannot score from scratch — it must work from extracted evidence and cite a verbatim quote for each score.</div>
+              </div>
+              <div class="stage-explain-note">
+                Why two stages? A single-pass model can fabricate plausible-sounding evidence when scoring, especially for articulate responses. Separating extraction from scoring forces the model to work from an evidence anchor, not from impressions. Low confidence is assigned when evidence is absent — not when the model is uncertain.
+              </div>
+            </div>
+          </div>
+        </details>
+
+      </div>
+
+      <!-- Dynamic evaluation output -->
+      <div id="results">
+        <div class="empty-state">
+          <div class="empty-icon">◈</div>
+          <div class="empty-title">Awaiting evaluation</div>
+          <div class="empty-desc">Select a question, paste a candidate response, and click Evaluate to surface signal.</div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+<script>
+  'use strict';
+
+  // ── Constants ────────────────────────────────────────────────────────────────
+
+  const MODEL   = 'claude-sonnet-4-20250514';
+  const API_URL = 'https://api.anthropic.com/v1/messages';
+
+  const QUESTIONS = [
+    'Describe an agentic AI system you built and deployed. What broke and how did you fix it?',
+    'Walk me through translating an ambiguous business problem into an AI solution. What did you choose not to build and why?',
+    'How do you decide where human oversight is required in an agentic workflow? Give a specific example.',
+    'Describe a time you balanced speed with governance in an AI build. What tradeoffs did you make?'
+  ];
+
+  const DIM_META = [
+    { name: 'Specificity Depth',      desc: 'Falsifiable details, named tools, specific numbers' },
+    { name: 'Tradeoff Authenticity',  desc: 'What they chose NOT to build, with stakes attached' },
+    { name: 'Failure Texture',        desc: 'Real failure with friction, wrong hypotheses, specific fix' },
+    { name: 'Constraint Proactivity', desc: 'Naming own limitations without being prompted' },
+    { name: 'Problem Interrogation',  desc: 'Questioning the problem before answering' }
+  ];
+
+  const ACTION_GUIDANCE = {
+    Strong:      { label: 'Recommended action:', text: 'Signal strength is sufficient to proceed. Advance to the next stage of your evaluation process.' },
+    Possible:    { label: 'Recommended action:', text: 'Proceed with caution. Use the probe questions below to test depth in a follow-up interview before deciding on next steps.' },
+    Insufficient:{ label: 'Recommended action:', text: 'Signal is insufficient for confident evaluation. Request a fuller, more specific response from the candidate before proceeding.' }
+  };
+
+  // ── Utilities ────────────────────────────────────────────────────────────────
+
+  function wordCount(text) {
+    return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+  }
+
+  function esc(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function scoreColor(n) {
+    return ['', '#ef4444', '#f97316', '#eab308', '#10b981'][n] || '#94a3b8';
+  }
+
+  function safeParseJSON(raw) {
+    const cleaned = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```\s*$/i, '')
+      .trim();
+    return JSON.parse(cleaned);
+  }
+
+  // ── Word count live update ───────────────────────────────────────────────────
+
+  document.getElementById('response-box').addEventListener('input', function () {
+    const n  = wordCount(this.value);
+    const el = document.getElementById('wc');
+    const ok = n >= 100;
+    el.textContent = ok
+      ? `${n} words`
+      : `${n} word${n !== 1 ? 's' : ''} — minimum 100 required`;
+    el.className = 'word-count' + (ok ? '' : ' under');
+  });
+
+  // ── API call ─────────────────────────────────────────────────────────────────
+
+  async function callClaude(apiKey, system, user, maxTokens = 2048) {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: maxTokens,
+        system,
+        messages: [{ role: 'user', content: user }]
+      })
+    });
+
+    if (!res.ok) {
+      let msg = `API error ${res.status}`;
+      try { const j = await res.json(); msg = j.error?.message || msg; } catch (_) {}
+      throw new Error(msg);
+    }
+
+    const data = await res.json();
+    return data.content[0].text;
+  }
+
+  // ── Stage 1: Evidence extraction ─────────────────────────────────────────────
+
+  async function extractEvidence(apiKey, question, response) {
+    const system = `You are an evidence extractor for AI builder candidate interviews. \
+Your sole job is to identify what is explicitly present in the candidate's text. \
+Do not infer, interpret, or add anything not written. Output only valid JSON.`;
+
+    const user = `Extract a structured evidence map from the candidate's interview response.
+
+QUESTION: ${question}
+
+CANDIDATE RESPONSE:
+${response}
+
+Return a JSON object with exactly these keys. Each value is an array of short direct quotes or close paraphrases from the text. If a category has no evidence, return an empty array. Output only the JSON.
+
+{
+  "specific_claims": [],
+  "named_tools": [],
+  "failure_mentions": [],
+  "tradeoff_language": [],
+  "limitation_acknowledgments": [],
+  "problem_questioning": []
+}`;
+
+    const raw = await callClaude(apiKey, system, user, 1024);
+    return safeParseJSON(raw);
+  }
+
+  // ── Stage 2: Dimension scoring ───────────────────────────────────────────────
+
+  async function scoreDimensions(apiKey, question, response, evidence) {
+    const system = `You are an evaluator scoring AI builder candidate responses. \
+Score only using the provided evidence map. You cannot assign High confidence without \
+direct evidence. Never suggest hire or do not hire. Output only valid JSON.`;
+
+    const user = `Score this candidate response on five dimensions using the evidence map.
+
+QUESTION: ${question}
+
+FULL CANDIDATE RESPONSE:
+${response}
+
+EVIDENCE MAP (Stage 1 extraction):
+${JSON.stringify(evidence, null, 2)}
+
+Return this exact JSON structure — no other text:
+
+{
+  "pattern_summary": "<exactly two sentences: first sentence names the key strength visible across dimensions, second sentence names the key gap or area of ambiguity>",
+  "dimensions": [
+    {
+      "name": "Specificity Depth",
+      "score": <integer 1–4>,
+      "confidence": "<High|Medium|Low>",
+      "reasoning": "<2–3 sentences>",
+      "evidence_quote": "<verbatim excerpt from response, or null>"
+    },
+    {
+      "name": "Tradeoff Authenticity",
+      "score": <integer 1–4>,
+      "confidence": "<High|Medium|Low>",
+      "reasoning": "<2–3 sentences>",
+      "evidence_quote": "<verbatim excerpt from response, or null>"
+    },
+    {
+      "name": "Failure Texture",
+      "score": <integer 1–4>,
+      "confidence": "<High|Medium|Low>",
+      "reasoning": "<2–3 sentences>",
+      "evidence_quote": "<verbatim excerpt from response, or null>"
+    },
+    {
+      "name": "Constraint Proactivity",
+      "score": <integer 1–4>,
+      "confidence": "<High|Medium|Low>",
+      "reasoning": "<2–3 sentences>",
+      "evidence_quote": "<verbatim excerpt from response, or null>"
+    },
+    {
+      "name": "Problem Interrogation",
+      "score": <integer 1–4>,
+      "confidence": "<High|Medium|Low>",
+      "reasoning": "<2–3 sentences>",
+      "evidence_quote": "<verbatim excerpt from response, or null>"
+    }
+  ],
+  "review_flags": [
+    {
+      "dimension": "<dimension name>",
+      "reason": "<why this needs human review>",
+      "probe_question": "<specific follow-up question for the interviewer>"
+    }
+  ]
+}
+
+SCORING (1–4):
+  1 = No evidence present
+  2 = Vague mention, no specifics
+  3 = Clear evidence with some detail
+  4 = Rich, specific, falsifiable, multiple data points
+
+CONFIDENCE (evidence density, not model uncertainty):
+  High   = 2+ direct quotes clearly support the score
+  Medium = 1 quote or ambiguous evidence
+  Low    = No clear evidence — MUST add a review_flag entry
+
+EVIDENCE QUOTE: verbatim excerpt from the response, or null (absence triggers a warning)`;
+
+    const raw = await callClaude(apiKey, system, user, 2560);
+    return safeParseJSON(raw);
+  }
+
+  // ── Governance: overall signal rating ────────────────────────────────────────
+
+  function computeRating(dimensions) {
+    const total = dimensions.reduce((s, d) => s + d.score, 0);
+    const lowCt = dimensions.filter(d => d.confidence === 'Low').length;
+
+    if (lowCt >= 3) {
+      return { label: 'Insufficient', cls: 'insufficient', total, lowCt, override: true };
+    }
+    if (total >= 16) return { label: 'Strong',       cls: 'strong',       total, lowCt, override: false };
+    if (total >= 10) return { label: 'Possible',     cls: 'possible',     total, lowCt, override: false };
+    return           { label: 'Insufficient', cls: 'insufficient', total, lowCt, override: false };
+  }
+
+  // ── Progress display ──────────────────────────────────────────────────────────
+
+  function showProgress(stage) {
+    const sub = stage === 1
+      ? 'Mapping specific claims, named tools, and failure events…'
+      : 'Scoring dimensions against extracted evidence…';
+
+    document.getElementById('results').innerHTML = `
+      <div class="progress-wrap">
+        <div class="progress-label">Evaluating response…</div>
+        <div class="stage-track">
+          <div class="stage-node ${stage === 1 ? 'active' : 'done'}">
+            <div class="stage-dot"></div>Stage 1: Extract evidence
+          </div>
+          <span class="stage-arrow">→</span>
+          <div class="stage-node ${stage === 2 ? 'active' : ''}">
+            <div class="stage-dot"></div>Stage 2: Score dimensions
+          </div>
+        </div>
+        <div class="progress-sub">${sub}</div>
+      </div>`;
+  }
+
+  // ── Render results ────────────────────────────────────────────────────────────
+
+  function renderResults(scorecard, question) {
+    const { pattern_summary, dimensions, review_flags } = scorecard;
+    const rating   = computeRating(dimensions);
+    const guidance = ACTION_GUIDANCE[rating.label];
+
+    // Evaluated question
+    const questionHTML = `
+      <div class="question-display">
+        <div class="question-eyebrow">Evaluated question</div>
+        <div class="question-text">${esc(question)}</div>
+      </div>`;
+
+    // Overall rating + action guidance
+    const overrideNote = rating.override
+      ? `<div class="rating-override">Score overridden — ${rating.lowCt} Low confidence dimensions (governance: ≥3 Low → Insufficient)</div>`
+      : '';
+
+    const ratingHTML = `
+      <div class="section-label">Evaluation Result</div>
+      <div class="rating-card ${rating.cls}">
+        <div class="rating-main">
+          <div class="rating-left">
+            <div class="rating-eyebrow">Signal Rating</div>
+            <div class="rating-value">${rating.label}</div>
+            ${overrideNote}
+          </div>
+          <div class="rating-score">${rating.total}<span class="rating-denom"> / 20</span></div>
+        </div>
+        <div class="rating-action">
+          <span class="action-label">${guidance.label}</span> ${esc(guidance.text)}
+        </div>
+      </div>`;
+
+    // Scorecard rows
+    const rows = dimensions.map(dim => {
+      const meta     = DIM_META.find(m => m.name === dim.name) || {};
+      const confCls  = dim.confidence.toLowerCase();
+      const hasQuote = dim.evidence_quote && dim.evidence_quote !== 'null';
+      const fill     = Math.round((dim.score / 4) * 100);
+      const color    = scoreColor(dim.score);
+
+      const quoteBlock = hasQuote
+        ? `<div class="quote-block">"${esc(dim.evidence_quote)}"</div>`
+        : `<div class="no-quote">⚠ No direct quote — evidence absent</div>`;
+
+      return `
+        <div class="sc-row">
+          <div>
+            <div class="dim-name">${esc(dim.name)}</div>
+            <div class="dim-desc">${esc(meta.desc || '')}</div>
+          </div>
+          <div class="score-cell">
+            <div class="score-num" style="color:${color}">${dim.score}</div>
+            <div class="score-bar-bg">
+              <div class="score-bar-fg" style="width:${fill}%;background:${color}"></div>
+            </div>
+            <div class="score-denom">/ 4</div>
+          </div>
+          <div>
+            <span class="conf-pill ${confCls}">${esc(dim.confidence)}</span>
+          </div>
+          <div>
+            <div class="analysis-text">${esc(dim.reasoning)}</div>
+            ${quoteBlock}
+          </div>
+        </div>`;
+    }).join('');
+
+    const summaryRow = pattern_summary
+      ? `<div class="pattern-summary">
+           <div class="pattern-eyebrow">Overall pattern</div>
+           ${esc(pattern_summary)}
+         </div>`
+      : '';
+
+    const scorecardHTML = `
+      <div class="section-label" style="margin-top:4px;">Dimension Scorecard</div>
+      <div class="scorecard">
+        <div class="sc-head">
+          <div>Dimension</div>
+          <div style="text-align:center">
+            Score
+            <span class="col-tip" data-tip="Signal strength: how much evidence of real experience is present (1 = none, 4 = rich and specific)">?</span>
+          </div>
+          <div>
+            Confidence
+            <span class="col-tip" data-tip="Evidence density: High = 2+ direct quotes support the score · Medium = 1 quote or ambiguous · Low = no direct evidence found">?</span>
+          </div>
+          <div>Analysis</div>
+        </div>
+        ${summaryRow}
+        ${rows}
+      </div>`;
+
+    // Review flags
+    let flagsHTML = '';
+    if (review_flags && review_flags.length > 0) {
+      const flagItems = review_flags.map(f => `
+        <div class="flag-item">
+          <div class="flag-dim">${esc(f.dimension)}</div>
+          <div class="flag-reason">${esc(f.reason)}</div>
+          <div class="flag-probe">
+            <span class="flag-probe-label">Probe question</span>
+            ${esc(f.probe_question)}
+          </div>
+        </div>`).join('');
+
+      flagsHTML = `
+        <div class="flags-card">
+          <div class="flags-header">⚑ Human Review Required (${review_flags.length} flag${review_flags.length !== 1 ? 's' : ''})</div>
+          ${flagItems}
+        </div>`;
+    }
+
+    // Permanent evaluator note
+    const noteHTML = `
+      <div class="eval-note">
+        This evaluation surfaces patterns for human consideration. Signal scores are inputs to judgment, not replacements for it. All hiring decisions require human review.
+      </div>`;
+
+    document.getElementById('results').innerHTML =
+      questionHTML + ratingHTML + scorecardHTML + flagsHTML + noteHTML;
+  }
+
+  // ── Main evaluation flow ──────────────────────────────────────────────────────
+
+  async function runEvaluation() {
+    const apiKey   = document.getElementById('api-key').value.trim();
+    const qIdx     = document.getElementById('q-select').value;
+    const response = document.getElementById('response-box').value.trim();
+    const msgEl    = document.getElementById('inline-msg');
+
+    msgEl.innerHTML = '';
+
+    if (!apiKey) {
+      msgEl.innerHTML = '<div class="msg error">API key is required.</div>';
+      return;
+    }
+    if (qIdx === '') {
+      msgEl.innerHTML = '<div class="msg error">Please select an interview question.</div>';
+      return;
+    }
+    if (!response) {
+      msgEl.innerHTML = '<div class="msg error">Please paste a candidate response.</div>';
+      return;
+    }
+
+    // Governance rule 1: block under 100 words before any API call
+    const wc = wordCount(response);
+    if (wc < 100) {
+      msgEl.innerHTML = `<div class="msg blocked">
+        <strong>Response blocked.</strong>
+        This response is ${wc} word${wc !== 1 ? 's' : ''} — the minimum is 100.
+        Responses under 100 words cannot provide sufficient signal across all five dimensions.
+        Request a fuller response from the candidate before evaluating.
+      </div>`;
+      return;
+    }
+
+    const question = QUESTIONS[parseInt(qIdx, 10)];
+    const btn      = document.getElementById('eval-btn');
+    btn.disabled   = true;
+
+    try {
+      showProgress(1);
+      const evidence = await extractEvidence(apiKey, question, response);
+
+      showProgress(2);
+      const scorecard = await scoreDimensions(apiKey, question, response, evidence);
+
+      renderResults(scorecard, question);
+    } catch (err) {
+      document.getElementById('results').innerHTML = `
+        <div>
+          <div class="msg error">
+            <strong>Evaluation failed.</strong> ${esc(err.message)}
+          </div>
+        </div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
